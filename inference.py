@@ -1,7 +1,7 @@
 import argparse
 import torch
 from diffusers import DiffusionPipeline
-from optimum.quanto import quantize, qfloat8, freeze
+##from optimum.quanto import quantize, qfloat8, freeze
 from tqdm.auto import tqdm
 
 def main(args):
@@ -11,9 +11,15 @@ def main(args):
     if torch.cuda.is_available():
         torch_dtype = torch.bfloat16
         device = "cuda"
+
     else:
-        torch_dtype = torch.float32
-        device = "cpu"
+            if torch.backends.mps.is_available():
+                torch_dtype = torch.bfloat16
+                device = "mps"
+    
+            else:
+                torch_dtype = torch.float32
+                device = "cpu"
 
     print(f"Using device: {device} with dtype: {torch_dtype}")
 
@@ -27,25 +33,25 @@ def main(args):
         pipe.load_lora_weights(args.lora_weights, adapter_name="lora")
 
     # Set up quantization
-    quantization_map = {
-        "qfloat8": qfloat8,
-    }
-    quantization_type = quantization_map.get(args.quantization)
-    if quantization_type is None:
-        raise ValueError(f"Invalid quantization type: {args.quantization}. Choose from 'qfloat8'")
+##    quantization_map = {
+##        "qfloat8": qfloat8,
+##    }
+##    quantization_type = quantization_map.get(args.quantization)
+##    if quantization_type is None:
+##        raise ValueError(f"Invalid quantization type: {args.quantization}. Choose from 'qfloat8'")
 
-    print(f"Applying {args.quantization} quantization to the transformer...")
+##    print(f"Applying {args.quantization} quantization to the transformer...")
 
     all_blocks = list(pipe.transformer.transformer_blocks)
     for block in tqdm(all_blocks):
         block.to(device, dtype=torch_dtype)
-        quantize(block, weights=quantization_type)
-        freeze(block)
+##        quantize(block, weights=quantization_type)
+##        freeze(block)
         block.to('cpu')
     pipe.transformer.to(device, dtype=torch_dtype)
-    quantize(pipe.transformer, weights=quantization_type)
-    freeze(pipe.transformer)
-    print("Transformer quantization complete.")
+##    quantize(pipe.transformer, weights=quantization_type)
+##    freeze(pipe.transformer)
+##    print("Transformer quantization complete.")
 
     # Offload model to CPU to save VRAM, parts will be moved to GPU as needed
     pipe.enable_model_cpu_offload()
